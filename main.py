@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, List
 import sys
 
 class Zone:
@@ -7,6 +7,7 @@ class Zone:
         self.name: str = name
         self.coordinates: tuple(int, int) = coordinates
         self.meta_data : dict[str, str | int] = meta_data
+        self.connections: List[dict] = []
 
 
 class Graph:

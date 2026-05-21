@@ -6,11 +6,11 @@ from typing import List
 class Parssing:
     def __init__(self, file_path):
         self.file_path: str = file_path
-        self.existed_coordinates: tuple(int, int) = None
+        self.existed_coordinates: tuple(int, int) = set()
         self.existed_names: set(str) = set()
         self.nb_drones: int = None
         self.zones: List[Zone] = []
-        self.zones_names: dict[str, Zone] = {}
+        self.named_zones: dict[str, Zone] = {}
 
     def parser(self):
         zones_metadata = {"zone", "color", "max_drones"}
@@ -43,7 +43,7 @@ class Parssing:
                             extract_line = re.fullmatch(connection_pattern, line)
                             if not extract_line:
                                 Parssing.log_and_exit(i, f"invalid syntax for: {org_line}")
-                            #print(extract_line.groups())
+                            self.validate_connection(i, extract_line.groups(), org_line)
                         else:
                             line = Parssing.strip_line(i, line)
                             hub_pattern = r"(\w+)\s+(-?\d+)\s+(-?\d+)(\s+\[.*\])?\s*$"
@@ -51,7 +51,6 @@ class Parssing:
                             if not extract_line:
                                 Parssing.log_and_exit(i, f"invalid syntax for: {org_line}")
                             self.validate_zone(i, extract_line.groups(), org_line)
-                            #print(extract_line.groups())
         except Exception as e:
             Parssing.log_and_exit(0, e)
 
@@ -78,9 +77,7 @@ class Parssing:
 
 
     def validate_zone(self, i: int, data: tuple, line: str) -> Zone:
-        print(data)
         name = data[0]
-        print(name)
         try:
             x = int(data[1])
             y  = int(data[2])
@@ -98,22 +95,25 @@ class Parssing:
             if not re.fullmatch(pattern, metadata, re.VERBOSE):
                 Parssing.log_and_exit(i, f"invalid metadata syntax: {line}")
             metadata = dict(re.findall(r'([A-Za-z_]+)\s*=\s*([A-Za-z0-9_]+)', metadata))
-        elif metadata is None:
-            exit()
         if name in self.existed_names:
             Parssing.log_and_exit(i, f"redfining of existed hub name {line}")
         self.existed_names.add(name)
         if (x, y) in self.existed_coordinates:
             Parssing.log_and_exit(i, f"Zone with the same coordinates already exists\n{line}")
         self.existed_coordinates.add((x, y))
-        #self.validate_zone_metadata(i, metadata, line)
-        #self.zones_names[metadata]
-        #self.zones.append(Zone(name, (x, y), metadata))
+        metadata = self.validate_zone_metadata(i, metadata, line)
+        zone = Zone(name, (x, y), metadata)
+        self.named_zones[name] = zone
+        self.zones.append(zone)
 
 
-    def validate_zone_metadata(self, i: int, metadata: dict[str, str | int], line: str) -> None:
+    def validate_zone_metadata(self, i: int, metadata: dict[str, str | int], line: str) -> dict[str, str | int]:
         possible_keys = {'zone', 'color', 'max_drones'}
         possible_types = {'normal', 'blocked', 'restricted', 'priority'}
+
+        if not metadata:
+            return {"zone": "normal", "color": None, "max_drones": 1}
+
         for key, value in metadata.items():
             key = key.lower()
             if key not in possible_keys:
@@ -134,14 +134,52 @@ class Parssing:
                     Parssing.log_and_exit(1, f"max_drones should be under {self.nb_drones}")
                 else:
                     metadata['max_drones'] = max_drones
-
         if "zone" not in metadata.keys():
             metadata['zone'] = 'normal'
         if "color" not in metadata.keys():
             metadata['color'] = None
         if "max_drones" not in metadata.keys():
             metadata['max_drones'] = 1
-        print(metadata)
+        return metadata
+
+
+    def validate_connection(self, i: int, data: tuple, line: str):
+        zone1 = data[0]
+        zone2 = data[1]
+        max_link = 1
+
+        if zone1 not in self.existed_names or zone2 not in self.existed_names:
+            Parssing.log_and_exit(i, f"missing zone for connection:\n{line}")
+
+        zone1_instance = self.named_zones[zone1]
+        zone2_instance = self.named_zones[zone2]
+
+        if Parssing.zone_name_exist(zone1, zone2_instance) or Parssing.zone_name_exist(zone2, zone1_instance):
+            Parssing.log_and_exit(i, f"duplicated connection: {line}")
+
+        if data[2]:
+            metadata = data[2]
+            pattern = r'^\s*(max_link_capacity)\s*=\s*(\d+)\s*$'
+            metadata = data[2].strip('[] ')
+            metadata = re.fullmatch(pattern, metadata)
+            if not metadata:
+                Parssing.log_and_exit(i, f"{line}\ninvalid metadata syntax, usage: [max_link_capacity = n]")
+            metadata = metadata.groups()
+            if int(metadata[1]) > self.nb_drones:
+                Parssing.log_and_exit(i, f"max_link_capacity should be less or equal to nb_drones:{self.nb_drones}")
+            max_link = int(metadata[1])
+
+        zone1_instance.connections.append({'name': zone2, 'max_link_capacity': max_link})
+        zone2_instance.connections.append({'name': zone1, 'max_link_capacity': max_link})
+
+    @staticmethod
+    def zone_name_exist(name: str, zone: Zone) -> bool:
+        if not zone.connections:
+            return False
+        name_connections = {connection['name'] for connection in zone.connections}
+        if name in name_connections:
+            return True
+        return False
 
 
 import sys
@@ -149,7 +187,8 @@ import sys
 c = Parssing(sys.argv[1])
 c.parser()
 
-#for zone in c.zones:
-#    print(zone.name)
-#    print(zone.coordinates)
-#    print(zone.metadata)
+for zone in c.zones:
+    print(zone.name)
+    print(zone.coordinates)
+    print(zone.meta_data)
+    print(zone.connections)
