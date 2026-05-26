@@ -1,13 +1,13 @@
 import re
-from main import Zone
+from my_graph import Zone
 import webcolors
-from typing import List
+from typing import List, Tuple, Set
 
-class Parssing:
-    def __init__(self, file_path):
+class My_Parssing:
+    def __init__(self, file_path: str):
         self.file_path: str = file_path
-        self.existed_coordinates: tuple(int, int) = set()
-        self.existed_names: set(str) = set()
+        self.existed_coordinates: Tuple[int, int] = set()
+        self.existed_names: Set[str] = set()
         self.nb_drones: int = None
         self.zones: List[Zone] = []
         self.named_zones: dict[str, Zone] = {}
@@ -33,26 +33,26 @@ class Parssing:
                             if self.nb_drones <= 0:
                                 raise ValueError("number should be positive")
                         except Exception as e:
-                            Parssing.log_and_exit(i, e)
+                            My_Parssing.log_and_exit(i, e)
                     elif not line.lower().startswith("nb_drones") and self.nb_drones == None:
                         raise ValueError("first line must be: nb_drones: n")
                     else:
                         if line.startswith("connection:"):
-                            line = Parssing.strip_line(i, line)
+                            line = My_Parssing.strip_line(i, line)
                             connection_pattern = r"(\w+)-(\w+)(\s+\[.*\])?\s*$"
                             extract_line = re.fullmatch(connection_pattern, line)
                             if not extract_line:
-                                Parssing.log_and_exit(i, f"invalid syntax for: {org_line}")
+                                My_Parssing.log_and_exit(i, f"invalid syntax for: {org_line}")
                             self.validate_connection(i, extract_line.groups(), org_line)
                         else:
-                            line = Parssing.strip_line(i, line)
+                            line = My_Parssing.strip_line(i, line)
                             hub_pattern = r"(\w+)\s+(-?\d+)\s+(-?\d+)(\s+\[.*\])?\s*$"
                             extract_line = re.fullmatch(hub_pattern, line)
                             if not extract_line:
-                                Parssing.log_and_exit(i, f"invalid syntax for: {org_line}")
+                                My_Parssing.log_and_exit(i, f"invalid syntax for: {org_line}")
                             self.validate_zone(i, extract_line.groups(), org_line)
         except Exception as e:
-            Parssing.log_and_exit(0, e)
+            My_Parssing.log_and_exit(0, e)
 
     @staticmethod
     def log_and_exit(i: int, msg: str) -> None:
@@ -73,7 +73,7 @@ class Parssing:
         elif line.startswith("connection:"):
             return line.removeprefix('connection:').strip()
         else:
-            Parssing.log_and_exit(i, f"invalid syntax\n {line}")
+            My_Parssing.log_and_exit(i, f"invalid syntax\n {line}")
 
 
     def validate_zone(self, i: int, data: tuple, line: str) -> Zone:
@@ -82,7 +82,7 @@ class Parssing:
             x = int(data[1])
             y  = int(data[2])
         except Exception as e:
-            Parssing.log_and_exit(i, e)
+            My_Parssing.log_and_exit(i, e)
         metadata = data[3]
         if metadata:
             pattern = r'''
@@ -93,13 +93,13 @@ class Parssing:
                     '''
             metadata = metadata.strip('[] ')
             if not re.fullmatch(pattern, metadata, re.VERBOSE):
-                Parssing.log_and_exit(i, f"invalid metadata syntax: {line}")
+                My_Parssing.log_and_exit(i, f"invalid metadata syntax: {line}")
             metadata = dict(re.findall(r'([A-Za-z_]+)\s*=\s*([A-Za-z0-9_]+)', metadata))
         if name in self.existed_names:
-            Parssing.log_and_exit(i, f"redfining of existed hub name {line}")
+            My_Parssing.log_and_exit(i, f"redfining of existed hub name {line}")
         self.existed_names.add(name)
         if (x, y) in self.existed_coordinates:
-            Parssing.log_and_exit(i, f"Zone with the same coordinates already exists\n{line}")
+            My_Parssing.log_and_exit(i, f"Zone with the same coordinates already exists\n{line}")
         self.existed_coordinates.add((x, y))
         metadata = self.validate_zone_metadata(i, metadata, line)
         zone = Zone(name, (x, y), metadata)
@@ -117,21 +117,24 @@ class Parssing:
         for key, value in metadata.items():
             key = key.lower()
             if key not in possible_keys:
-                log_and_exit(i, f"{line}\ninvalid metadata possible keys: {possible_keys}")
-            elif key == "zone" and value.lower() not in possible_keys:
-                log_and_exit(i, f"{line}\ninvalid zone_type possible keys: {possible_types}")
+                My_Parssing.log_and_exit(i, f"{line}\ninvalid metadata possible keys: {possible_keys}")
+            elif key == "zone" and value.lower() not in possible_types:
+                My_Parssing.log_and_exit(i, f"{line}\ninvalid zone_type possible keys: {possible_types}")
             elif key == "color":
                 try:
-                    metadata['color'] = tuple(webcolors.name_to_rgb(value))
+                    if value.lower() == "rainbow": 
+                        metadata['color'] = tuple(webcolors.name_to_rgb('lightgreen'))
+                    else: 
+                        metadata['color'] = tuple(webcolors.name_to_rgb(value))
                 except Exception:
-                    Parssing.log_and_exit(i, f"invalid color in metadata {line}")
+                    My_Parssing.log_and_exit(i, f"invalid color in metadata {line}")
             elif key == "max_drones":
                 try:
                     max_drones = int(value)
                 except Exception as e:
-                    Parssing.log_and_exit(i, f"{line}\n{e}")
+                    My_Parssing.log_and_exit(i, f"{line}\n{e}")
                 if max_drones > self.nb_drones:
-                    Parssing.log_and_exit(1, f"max_drones should be under {self.nb_drones}")
+                    My_Parssing.log_and_exit(1, f"max_drones should be under {self.nb_drones}")
                 else:
                     metadata['max_drones'] = max_drones
         if "zone" not in metadata.keys():
@@ -149,13 +152,13 @@ class Parssing:
         max_link = 1
 
         if zone1 not in self.existed_names or zone2 not in self.existed_names:
-            Parssing.log_and_exit(i, f"missing zone for connection:\n{line}")
+            My_Parssing.log_and_exit(i, f"missing zone for connection:\n{line}")
 
         zone1_instance = self.named_zones[zone1]
         zone2_instance = self.named_zones[zone2]
 
-        if Parssing.zone_name_exist(zone1, zone2_instance) or Parssing.zone_name_exist(zone2, zone1_instance):
-            Parssing.log_and_exit(i, f"duplicated connection: {line}")
+        if My_Parssing.zone_name_exist(zone1, zone2_instance) or My_Parssing.zone_name_exist(zone2, zone1_instance):
+            My_Parssing.log_and_exit(i, f"duplicated connection: {line}")
 
         if data[2]:
             metadata = data[2]
@@ -163,10 +166,10 @@ class Parssing:
             metadata = data[2].strip('[] ')
             metadata = re.fullmatch(pattern, metadata)
             if not metadata:
-                Parssing.log_and_exit(i, f"{line}\ninvalid metadata syntax, usage: [max_link_capacity = n]")
+                My_Parssing.log_and_exit(i, f"{line}\ninvalid metadata syntax, usage: [max_link_capacity = n]")
             metadata = metadata.groups()
             if int(metadata[1]) > self.nb_drones:
-                Parssing.log_and_exit(i, f"max_link_capacity should be less or equal to nb_drones:{self.nb_drones}")
+                My_Parssing.log_and_exit(i, f"max_link_capacity should be less or equal to nb_drones:{self.nb_drones}")
             max_link = int(metadata[1])
 
         zone1_instance.connections.append({'name': zone2, 'max_link_capacity': max_link})
@@ -180,15 +183,3 @@ class Parssing:
         if name in name_connections:
             return True
         return False
-
-
-import sys
-
-c = Parssing(sys.argv[1])
-c.parser()
-
-for zone in c.zones:
-    print(zone.name)
-    print(zone.coordinates)
-    print(zone.meta_data)
-    print(zone.connections)
