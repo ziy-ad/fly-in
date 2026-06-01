@@ -60,7 +60,7 @@ def main():
 
         graph.draw_drones(screen, cammera_x, cammera_y)
 
-        
+
         progress = min(t, 1)
         target_x = drone_start_x + (end_hub.coordinates[0] - drone_start_x) * progress
         target_y = drone_start_y + (end_hub.coordinates[1] - drone_start_y) * progress

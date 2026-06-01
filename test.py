@@ -102,5 +102,13 @@ while running:
     pygame.display.flip()
     clock.tick(60)
 
+
+img = pygame.image.load('drones/drone1.png')
+print(img)
+
+
+img_rect = img.get_rect()
+
+print(img_rect)
 pygame.quit()
 sys.exit()

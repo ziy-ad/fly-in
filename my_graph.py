@@ -50,8 +50,10 @@ class Drone:
 
     def draw_drone(self, screen, camera_x, camera_y):
         x, y = self.zone['coordinates']
+        print("before centring: ", x, y)
         screen_x, screen_y = to_screen(x, y, camera_x, camera_y)
         image_rect = self.img.get_rect(center=(screen_x, screen_y))
+        print("after centring: ", image_rect)
         screen.blit(self.img, image_rect)
 
 
