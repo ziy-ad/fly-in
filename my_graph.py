@@ -5,14 +5,14 @@ import random
 import graph_data
 
 ZONE_RADIUS = 100
-SCALE = 150
+SCALE = 60
 
 import time
 def to_screen(x, y, camera_x, camera_y):
     screen_x = x  * SCALE + 50 + camera_x
-    screen_y = 1500 // 2 - y * SCALE + camera_y
+    screen_y = 400 - y * SCALE + camera_y
 
-    return (x * SCALE + 50 + camera_x, 1500 // 2 - y * SCALE + camera_y)
+    return (screen_x, screen_y)
 
 class Zone:
     def __init__(self, name: str, coordinates: tuple, meta_data: dict = {}) -> None:
@@ -24,8 +24,8 @@ class Zone:
 
     def draw_node(self, window: pygame.Surface, dx, dy):
         x, y = self.coordinates
-        pygame.draw.circle(window, (255, 255, 255), to_screen(x, y, dx, dy), 40)
-        pygame.draw.circle(window, self.meta_data['color'], to_screen(x, y, dx, dy), 30)
+        pygame.draw.circle(window, (220, 180, 255), to_screen(x, y, dx, dy), 20)
+        pygame.draw.circle(window, self.meta_data['color'], to_screen(x, y, dx, dy), 15)
 
     def draw_edges(self, window: pygame.Surface, named_zones, dx, dy):
         start_pos = to_screen(self.coordinates[0], self.coordinates[1],dx, dy)
@@ -39,22 +39,28 @@ class Zone:
                 color,
                 start_pos,
                 end_pos,
-                5
+                2
             )
 
 
 class Drone:
     def __init__(self, current_hub):
-        self.img: str = pygame.image.load(random.choice(graph_data.drones))
+        self.img: pygame.surface.Surface = Drone.load_image()
         self.zone: dict[str, Any] = {"name": current_hub.name, "coordinates": current_hub.coordinates}
 
     def draw_drone(self, screen, camera_x, camera_y):
         x, y = self.zone['coordinates']
-        print("before centring: ", x, y)
         screen_x, screen_y = to_screen(x, y, camera_x, camera_y)
         image_rect = self.img.get_rect(center=(screen_x, screen_y))
-        print("after centring: ", image_rect)
         screen.blit(self.img, image_rect)
+    
+
+    @staticmethod
+    def load_image() -> pygame.surface.Surface:
+        image = pygame.image.load(random.choice(graph_data.drones))
+        image = pygame.transform.scale(image, (60, 60))
+        print(type(image))
+        return image
 
 
 class Graph:

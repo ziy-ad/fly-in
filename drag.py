@@ -70,6 +70,6 @@ while running:
 
     pygame.display.update()
 
-    clock.tick(10)
+    clock.tick(60)
 
 pygame.quit()

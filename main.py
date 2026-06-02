@@ -13,7 +13,8 @@ def main():
     parse = My_Parssing(file_path)
     parse.parser()
     pygame.init()
-    screen = pygame.display.set_mode((3000, 1500))
+
+    screen = pygame.display.set_mode((1600, 800))
     clock = pygame.time.Clock()
 
     start_hub = min(parse.zones, key=lambda x: x.coordinates[0])
@@ -27,7 +28,7 @@ def main():
 
 
     t = 0
-    speed = 0.02
+    speed = 0.01
     while rendring:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -52,7 +53,7 @@ def main():
                     last_x, last_y = event.pos
 
 
-        screen.fill((15, 18, 25))
+        screen.fill((25, 10, 40))
         for node in parse.zones:
             node.draw_edges(screen, parse.named_zones, cammera_x, cammera_y)
         for node in parse.zones:
