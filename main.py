@@ -3,6 +3,7 @@ from my_graph import Zone, Graph
 from my_parser import My_Parssing
 import pygame
 import time
+from graph_data import SPEED
 
 def main():
     try:
@@ -14,12 +15,17 @@ def main():
     parse.parser()
     pygame.init()
 
+
+    print(parse.named_zones[parse.start_hub.connections[0]['name']])
     screen = pygame.display.set_mode((1600, 800))
     clock = pygame.time.Clock()
+    
+    print()
 
-    start_hub = min(parse.zones, key=lambda x: x.coordinates[0])
-    end_hub = max(parse.zones, key=lambda x: x.coordinates[0])
-    graph = Graph(parse.nb_drones, start_hub)
+    graph = Graph(parse.nb_drones, parse.start_hub, parse.end_hub)
+    graph.rank_hubs(parse)
+
+        
     drone_start_x, drone_start_y = graph.drones[0].zone['coordinates']
 
     rendring = True
@@ -28,7 +34,7 @@ def main():
 
 
     t = 0
-    speed = 0.01
+    i = 0
     while rendring:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -60,19 +66,13 @@ def main():
             node.draw_node(screen, cammera_x, cammera_y)
 
         graph.draw_drones(screen, cammera_x, cammera_y)
-
-
-        progress = min(t, 1)
-        target_x = drone_start_x + (end_hub.coordinates[0] - drone_start_x) * progress
-        target_y = drone_start_y + (end_hub.coordinates[1] - drone_start_y) * progress
-
-        graph.drones[0].draw_drone(screen, cammera_x, cammera_y)
-        t += speed
-
-        graph.drones[0].zone['coordinates'] = (target_x, target_y)
-        if t >= 1:
-            graph.drones[0].zone['coordinates'] = end_hub.coordinates
-        # print(self.zone['coordinates'])
+        
+        if i >= 0:
+            if graph.drones[i].move_drone(screen, cammera_x, cammera_y):
+                if i == len(graph.drones) - 1:
+                    i = -1
+                else:
+                    i += 1
 
 
         pygame.display.flip()

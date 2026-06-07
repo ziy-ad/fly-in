@@ -2,6 +2,7 @@ import re
 from my_graph import Zone
 import webcolors
 from typing import List, Tuple, Set
+from graph_data import COLORS
 
 class My_Parssing:
     def __init__(self, file_path: str):
@@ -11,6 +12,8 @@ class My_Parssing:
         self.nb_drones: int = None
         self.zones: List[Zone] = []
         self.named_zones: dict[str, Zone] = {}
+        self.start_hub = None
+        self.end_hub = None
 
     def parser(self):
         zones_metadata = {"zone", "color", "max_drones"}
@@ -38,19 +41,32 @@ class My_Parssing:
                         raise ValueError("first line must be: nb_drones: n")
                     else:
                         if line.startswith("connection:"):
-                            line = My_Parssing.strip_line(i, line)
+                            ltype, line = My_Parssing.strip_line(i, line)
                             connection_pattern = r"(\w+)-(\w+)(\s+\[.*\])?\s*$"
                             extract_line = re.fullmatch(connection_pattern, line)
                             if not extract_line:
                                 My_Parssing.log_and_exit(i, f"invalid syntax for: {org_line}")
                             self.validate_connection(i, extract_line.groups(), org_line)
                         else:
-                            line = My_Parssing.strip_line(i, line)
+                            ltype, line = My_Parssing.strip_line(i, line)
                             hub_pattern = r"(\w+)\s+(-?\d+)\s+(-?\d+)(\s+\[.*\])?\s*$"
                             extract_line = re.fullmatch(hub_pattern, line)
                             if not extract_line:
                                 My_Parssing.log_and_exit(i, f"invalid syntax for: {org_line}")
-                            self.validate_zone(i, extract_line.groups(), org_line)
+                            temp_zone = self.validate_zone(i, extract_line.groups(), org_line)
+                            if ltype == "start_hub" and self.start_hub:
+                                My_Parssing.log_and_exit(i, f"duplicated 'start_hub': {org_line}")
+                            elif ltype == "start_hub" and self.start_hub is None:
+                                self.start_hub = temp_zone
+                            
+                            if ltype == "end_hub" and self.end_hub:
+                                My_Parssing.log_and_exit(i, f"duplicated 'end_hub': {org_line}")
+                            elif ltype == "end_hub" and self.end_hub is None:
+                                self.end_hub = temp_zone
+                if self.start_hub is None:
+                    My_Parssing.log_and_exit(0, f"missing start_hub")
+                elif self.end_hub is None:
+                    My_Parssing.log_and_exit(0, f"missing end_hub")
         except Exception as e:
             My_Parssing.log_and_exit(0, e)
 
@@ -63,15 +79,15 @@ class My_Parssing:
         exit(0)
 
     @staticmethod
-    def strip_line(i: int, line: str) -> str:
+    def strip_line(i: int, line: str):
         if line.startswith("start_hub:"):
-            return line.removeprefix('start_hub:').strip()
+            return ('start_hub', line.removeprefix('start_hub:').strip())
         elif line.startswith("hub:"):
-            return line.removeprefix('hub:').strip()
+            return ('hub', line.removeprefix('hub:').strip())
         elif line.startswith("end_hub:"):
-            return line.removeprefix('end_hub:').strip()
+            return ('end_hub', line.removeprefix('end_hub:').strip())
         elif line.startswith("connection:"):
-            return line.removeprefix('connection:').strip()
+            return ('connection', line.removeprefix('connection:').strip())
         else:
             My_Parssing.log_and_exit(i, f"invalid syntax\n {line}")
 
@@ -105,6 +121,7 @@ class My_Parssing:
         zone = Zone(name, (x, y), metadata)
         self.named_zones[name] = zone
         self.zones.append(zone)
+        return zone
 
 
     def validate_zone_metadata(self, i: int, metadata: dict[str, str | int], line: str) -> dict[str, str | int]:
@@ -122,25 +139,22 @@ class My_Parssing:
                 My_Parssing.log_and_exit(i, f"{line}\ninvalid zone_type possible keys: {possible_types}")
             elif key == "color":
                 try:
-                    if value.lower() == "rainbow": 
-                        metadata['color'] = tuple(webcolors.name_to_rgb('lightgreen'))
-                    else: 
-                        metadata['color'] = tuple(webcolors.name_to_rgb(value))
+                    metadata['color'] = tuple(webcolors.name_to_rgb(value))
                 except Exception:
-                    My_Parssing.log_and_exit(i, f"invalid color in metadata {line}")
+                    try:
+                        metadata['color'] = COLORS[value.lower()]
+                    except KeyError:
+                        My_Parssing.log_and_exit(i, f"invalid color in metadata {line}")
             elif key == "max_drones":
                 try:
                     max_drones = int(value)
                 except Exception as e:
                     My_Parssing.log_and_exit(i, f"{line}\n{e}")
-                if max_drones > self.nb_drones:
-                    My_Parssing.log_and_exit(1, f"max_drones should be under {self.nb_drones}")
-                else:
-                    metadata['max_drones'] = max_drones
+                metadata['max_drones'] = max_drones
         if "zone" not in metadata.keys():
             metadata['zone'] = 'normal'
         if "color" not in metadata.keys():
-            metadata['color'] = None
+            metadata['color'] = (255, 255, 255)
         if "max_drones" not in metadata.keys():
             metadata['max_drones'] = 1
         return metadata
