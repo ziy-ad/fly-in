@@ -1,6 +1,7 @@
 drones = ('drones/drone1.png', 'drones/drone2.png', 'drones/drone3.png', 'drones/drone4.png', 'drones/drone5.png')
 edge_colors = {'normal': "white", 'blocked': 'red', 'restricted': 'yellow', 'priority': 'green'}
-SPEED = 0.01
+SPEED = 0.002
+SCALE = 60
 COLORS = {
     "gold":      (255, 215, 0),
     "sapphire":  (15,  82, 186),

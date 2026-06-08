@@ -5,79 +5,82 @@ import pygame
 import time
 from graph_data import SPEED
 
+
+class Display:
+    def __init__(self, file_path):
+        self.parse = My_Parssing(file_path)
+        self.screen = pygame.display.set_mode((1600, 800))
+        self.clock = pygame.time.Clock()
+        self.rendring = True
+        self.draging = False
+        self.camera_x, self.camera_y = (0, 0)
+        self.last_x = 0
+        self.last_y = 0
+
+
+    def dragging(self):
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                self.rendring = False
+
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 1:
+                    self.draging = True
+                    self.last_x, self.last_y = event.pos
+
+            if event.type == pygame.MOUSEBUTTONUP:
+                if event.button == 1:
+                    self.draging = False
+
+            if event.type == pygame.MOUSEMOTION:
+                if self.draging:
+                    dx = event.pos[0] - self.last_x
+                    dy = event.pos[1] - self.last_y
+
+                    self.camera_x += dx
+                    self.camera_y += dy
+                    self.last_x, self.last_y = event.pos
+
 def main():
     try:
         file_path = sys.argv[1]
     except Exception as e:
         print("file not provided\nUsage: python3 main.py map_name")
         exit(1)
+    display = Display(file_path)
     parse = My_Parssing(file_path)
     parse.parser()
-    pygame.init()
-
-
-    print(parse.named_zones[parse.start_hub.connections[0]['name']])
-    screen = pygame.display.set_mode((1600, 800))
-    clock = pygame.time.Clock()
-    
-    print()
 
     graph = Graph(parse.nb_drones, parse.start_hub, parse.end_hub)
-    graph.rank_hubs(parse)
+    if not graph.path_exist(parse):
+        print("invalid path to end_hub !")
+        exit(1)
 
-        
+
+    screen = pygame.display.set_mode((1600, 800))
+    clock = pygame.time.Clock()
+    graph.rank_hubs(parse)
     drone_start_x, drone_start_y = graph.drones[0].zone['coordinates']
 
     rendring = True
     draging = False
-    cammera_x, cammera_y = (0, 0)
+    camera_x, camera_y = (0, 0)
 
 
-    t = 0
-    i = 0
-    while rendring:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                rendring = False
-
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                if event.button == 1:
-                    draging = True
-                    last_x, last_y = event.pos
-
-            if event.type == pygame.MOUSEBUTTONUP:
-                if event.button == 1:
-                    draging = False
-
-            if event.type == pygame.MOUSEMOTION:
-                if draging:
-                    dx = event.pos[0] - last_x
-                    dy = event.pos[1] - last_y
-
-                    cammera_x += dx
-                    cammera_y += dy
-                    last_x, last_y = event.pos
-
-
+    while display.rendring:
+        display.dragging()
         screen.fill((25, 10, 40))
         for node in parse.zones:
-            node.draw_edges(screen, parse.named_zones, cammera_x, cammera_y)
+            node.draw_edges(screen, parse.named_zones, display.camera_x, display.camera_y)
         for node in parse.zones:
-            node.draw_node(screen, cammera_x, cammera_y)
+            node.draw_node(screen, display.camera_x, display.camera_y)
 
-        graph.draw_drones(screen, cammera_x, cammera_y)
+        graph.draw_drones(screen, display.camera_x, display.camera_y)
         
-        if i >= 0:
-            if graph.drones[i].move_drone(screen, cammera_x, cammera_y):
-                if i == len(graph.drones) - 1:
-                    i = -1
-                else:
-                    i += 1
-
+        graph.move_drones(graph, parse, screen, display)
 
         pygame.display.flip()
         clock.tick(60)
-
 
 if __name__ == "__main__":
     main()

@@ -59,6 +59,10 @@ class My_Parssing:
                             elif ltype == "start_hub" and self.start_hub is None:
                                 self.start_hub = temp_zone
                             
+                            if ltype == "start_hub" or ltype == "end_hub":
+                                if temp_zone.meta_data['zone'] == "blocked":
+                                    My_Parssing.log_and_exit(i, f"{ltype} can't be blocked zone")
+
                             if ltype == "end_hub" and self.end_hub:
                                 My_Parssing.log_and_exit(i, f"duplicated 'end_hub': {org_line}")
                             elif ltype == "end_hub" and self.end_hub is None:
