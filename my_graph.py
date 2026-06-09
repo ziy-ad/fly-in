@@ -19,6 +19,7 @@ class Zone:
         self.meta_data : dict[str, str | int] = meta_data
         self.connections: List[dict] = []
         self.rank = 0
+        self.drones_in = 0
 
 
     def draw_node(self, window: pygame.Surface, dx, dy):
@@ -43,12 +44,15 @@ class Zone:
 
 
 class Drone:
-    def __init__(self, current_hub, end_hub):
+    def __init__(self, current_hub, end_hub, i):
         self.img: pygame.surface.Surface = Drone.load_image()
         self.zone: dict[str, Any] = {"name": current_hub.name, "coordinates": current_hub.coordinates}
+        self.index = i
         self.t = 0
         self.moving = 0
         self.target = end_hub
+        self.visited = set()
+        self.target_coordinates = self.target.coordinates
         self.drone_start_x = 0
         self.drone_start_y = 0
     
@@ -59,8 +63,8 @@ class Drone:
         image_rect = self.img.get_rect(center=(screen_x, screen_y))
         screen.blit(self.img, image_rect)
     
-    def move_drone(self,graph, parse, screen, display):
-        while self.zone['coordinates'] != self.target.coordinates:
+    def move_drone(self, graph, parse, screen, display):
+        while self.zone['coordinates'] != self.target_coordinates:
             display.dragging()
             screen.fill((25, 10, 40))
 
@@ -72,17 +76,48 @@ class Drone:
             graph.draw_drones(screen, display.camera_x, display.camera_y)
 
             progress = min(self.t, 1)
-            target_x = self.drone_start_x + (self.target.coordinates[0] - self.drone_start_x) * progress
-            target_y = self.drone_start_y + (self.target.coordinates[1] - self.drone_start_y) * progress
+            target_x = self.drone_start_x + (self.target_coordinates[0] - self.drone_start_x) * progress
+            target_y = self.drone_start_y + (self.target_coordinates[1] - self.drone_start_y) * progress
 
             self.draw_drone(screen, display.camera_x, display.camera_y)
             self.t += graph_data.SPEED
 
             self.zone['coordinates'] = (target_x, target_y)
             if self.t >= 1:
-                self.zone['coordinates'] = self.target.coordinates
+                self.zone['coordinates'] = self.target_coordinates
             pygame.display.flip()
-            # clock.tick(60)
+    
+    def find_path(self, graph, parse, screen, display):
+        visited = set()
+
+        if self.zone['name'] == self.target.name:
+            return 
+
+        # while self.zone['name'] != self.target.name:
+        self.visited.add(self.zone['name'])
+        connections = parse.named_zones[self.zone['name']].connections
+        min_rank = {'name': None, 'rank': float('inf')}
+        for connection in connections:
+            if connection['name'] not in self.visited:
+                current = parse.named_zones[connection['name']]
+                if current.rank < min_rank['rank']:
+                    if current.drones_in >= current.meta_data['max_drones']:
+                        continue
+                    min_rank['name'] = connection['name']
+                    min_rank['rank'] = parse.named_zones[connection['name']].rank
+                    current.drones_in += 1
+
+        if not min_rank['name']:
+            return
+
+        self.drone_start_x, self.drone_start_y = self.zone['coordinates']
+        self.target_coordinates = parse.named_zones[min_rank['name']].coordinates
+        self.t = 0
+
+        self.move_drone(graph, parse, screen, display)
+        parse.named_zones[self.zone['name']].drones_in -= 1
+        self.zone['name'] = min_rank['name']
+
 
     @staticmethod
     def load_image() -> pygame.surface.Surface:
@@ -100,7 +135,7 @@ class Graph:
     def add_drones(self, n):
         result = []
         for i in range(n):
-            result.append(Drone(self.start_hub, self.end_hub))
+            result.append(Drone(self.start_hub, self.end_hub, i))
         return result
 
     def draw_drones(self, screen, camera_x, camera_y):
@@ -118,7 +153,9 @@ class Graph:
 
         while queue:
             current = queue.pop(0)
-            visited.add(current) 
+            visited.add(current)
+            if current.meta_data['zone'] == "blocked":
+                continue
             if current == self.end_hub:
                 return True
             for neighbor in current.connections:
@@ -127,31 +164,18 @@ class Graph:
         return False
 
 
-    def find_path(self, parse):
-        visited = set()
-        path = {}
-        stack = [parse.start_hub]
-
-        while stack:
-            current = stack.pop()
-            print(current)
-            for neighbor in current.connections:
-                if parse.named_zones[neighbor['name']] not in visited:
-                    stack.append(parse.named_zones[neighbor['name']])
-
-
     def rank_hubs(self, parse):
         heap = [parse.end_hub]
         visited = set()
 
-        def rank_hub(current, previous_hub):
-            current.rank = previous_hub.rank + 1
-
         while heap:
             current = heap.pop(0)
             visited.add(current)
+            if current == parse.start_hub:
+                current.rank = 0
+                break
             for neighbor in current.connections:
                 neighbor = parse.named_zones[neighbor['name']]
                 if neighbor not in visited:
                     heap.append(neighbor)
-                neighbor.rank = current.rank + 1
+                    neighbor.rank = current.rank + graph_data.COST[neighbor.meta_data['zone']]

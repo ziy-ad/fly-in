@@ -77,10 +77,11 @@ def main():
 
         graph.draw_drones(screen, display.camera_x, display.camera_y)
         
-        graph.move_drones(graph, parse, screen, display)
+        for drone in graph.drones:
+            drone.find_path(graph, parse, screen, display)
 
         pygame.display.flip()
-        clock.tick(60)
+        clock.tick(10)
 
 if __name__ == "__main__":
     main()

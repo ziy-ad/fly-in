@@ -1,0 +1,41 @@
+# Multiple Paths with Blocked Zones
+nb_drones: 2
+
+start_hub: start 0 0 [color=green max_drones=6]
+
+hub: path_a1 1 0 [max_drones=2 color=blue]
+hub: path_a2 2 0 [max_drones=2 color=blue]
+hub: path_a3 3 0 [color=blue]
+
+hub: path_b1 1 1 [max_drones=2 color=blue]
+hub: blocked_b2 2 1 [zone=blocked color=red]
+hub: path_b3 3 1 [color=blue]
+
+hub: path_c1 1 2 [max_drones=2 color=blue]
+hub: blocked_c2 2 2 [zone=blocked color=red]
+hub: path_c3 3 2 [color=blue]
+
+hub: merge 4 1 [color=yellow max_drones=3]
+
+end_hub: goal 5 1 [color=green max_drones=6]
+
+# Top path (VALID)
+connection: start-path_a1
+connection: path_a1-path_a2
+connection: path_a2-path_a3
+connection: path_a3-merge
+
+# Middle path (BLOCKED)
+connection: start-path_b1
+connection: path_b1-blocked_b2
+connection: blocked_b2-path_b3
+connection: path_b3-merge
+
+# Bottom path (BLOCKED)
+connection: start-path_c1
+connection: path_c1-blocked_c2
+connection: blocked_c2-path_c3
+connection: path_c3-merge
+
+# Goal
+connection: merge-goal

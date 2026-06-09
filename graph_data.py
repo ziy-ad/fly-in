@@ -2,6 +2,9 @@ drones = ('drones/drone1.png', 'drones/drone2.png', 'drones/drone3.png', 'drones
 edge_colors = {'normal': "white", 'blocked': 'red', 'restricted': 'yellow', 'priority': 'green'}
 SPEED = 0.002
 SCALE = 60
+
+COST = {"normal": 1, "restricted": 2, "priority": 0.5, "blocked": float('inf')}
+
 COLORS = {
     "gold":      (255, 215, 0),
     "sapphire":  (15,  82, 186),
