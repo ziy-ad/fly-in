@@ -68,12 +68,11 @@ def main():
         for node in parse.zones:
             node.draw_node(screen, display.camera_x, display.camera_y)
 
+        # if parse.end_hub.drones_in == parse.nb_drones:
+        #     time.sleep(2)
+        #     break
         graph.draw_drones(screen, display.camera_x, display.camera_y)
-
         graph.find_next_hubs(parse, screen, display)
-        #graph.find_next_move
-        # for drone in graph.drones:
-            # drone.find_path(graph, parse, screen, display)
 
         pygame.display.flip()
         graph.clock.tick(60)

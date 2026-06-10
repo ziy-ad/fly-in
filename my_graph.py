@@ -64,7 +64,9 @@ class Drone:
         screen.blit(self.img, image_rect)
     
     def move_drone(self, graph, parse, screen, display) -> bool:
-        if self.zone['coordinates'] == self.target_coordinates:
+        # Check if we've reached the target (with small tolerance for floating point)
+        if self.t >= 1:
+            self.zone['coordinates'] = self.target_coordinates
             return True
 
         display.dragging()
@@ -77,17 +79,20 @@ class Drone:
 
         graph.draw_drones(screen, display.camera_x, display.camera_y)
 
+        # Interpolate position smoothly
         progress = min(self.t, 1)
         target_x = self.drone_start_x + (self.target_coordinates[0] - self.drone_start_x) * progress
         target_y = self.drone_start_y + (self.target_coordinates[1] - self.drone_start_y) * progress
 
-        self.draw_drone(screen, display.camera_x, display.camera_y)
-        self.t += graph_data.SPEED
-
+        # Update zone coordinates for this frame
         self.zone['coordinates'] = (target_x, target_y)
-        if self.t >= 1:
-            self.zone['coordinates'] = self.target_coordinates
+        
+        self.draw_drone(screen, display.camera_x, display.camera_y)
         pygame.display.flip()
+        
+        # Increment progress after drawing
+        self.t += graph_data.SPEED
+        
         graph.clock.tick(60)
         return False
     
@@ -104,12 +109,12 @@ class Drone:
         for connection in connections:
             if connection['name'] not in self.visited:
                 current = parse.named_zones[connection['name']]
-                if current.rank < min_rank['rank']:
-                    if current.drones_in >= current.meta_data['max_drones']:
-                        continue
-                    min_rank['name'] = connection['name']
-                    min_rank['rank'] = parse.named_zones[connection['name']].rank
-                    current.drones_in += 1
+                if current.rank <= min_rank['rank']:
+                    if current.drones_in < current.meta_data['max_drones']:
+                        min_rank['name'] = connection['name']
+                        min_rank['rank'] = parse.named_zones[connection['name']].rank
+                        current.drones_in += 1
+                        # continue
 
         if not min_rank['name']:
             return
@@ -133,24 +138,30 @@ class Drone:
         return image
     
     def find_next_move(self, parse, graph) -> list:
-        if self.zone['name'] == self.target:
+        if self.zone['name'] == parse.end_hub.name:
             return
 
-        self.visited.add(self.zone['name'])
+        if self.target is not None:
+            return
+
         connections = parse.named_zones[self.zone['name']].connections
         min_rank = {'name': None, 'rank': float('inf')}
-        for connection in connections:
-            if connection['name'] not in self.visited:
-                current = parse.named_zones[connection['name']]
-                if current.rank < min_rank['rank']:
-                    if current.drones_in >= current.meta_data['max_drones']:
-                        continue
-                    min_rank['name'] = connection['name']
-                    min_rank['rank'] = parse.named_zones[connection['name']].rank
-                    current.drones_in += 1
+        
+        sorted_connections = sorted(connections, key=lambda x: parse.named_zones[x['name']].rank)
+
+        for connection in sorted_connections:
+            current = parse.named_zones[connection['name']]
+            if current.rank == float('inf'):
+                break
+            if current.rank <= min_rank['rank']:
+                    if current.drones_in < current.meta_data['max_drones']:
+                        min_rank['name'] = connection['name']
+                        min_rank['rank'] = parse.named_zones[connection['name']].rank
 
         if not min_rank['name']:
             return
+        
+        parse.named_zones[min_rank['name']].drones_in += 1
         self.target = min_rank['name']
         
         
@@ -198,13 +209,11 @@ class Graph:
     def rank_hubs(self, parse):
         heap = [parse.end_hub]
         visited = set()
+        parse.end_hub.rank = 0
 
         while heap:
             current = heap.pop(0)
             visited.add(current)
-            if current == parse.start_hub:
-                current.rank = 0
-                break
             for neighbor in current.connections:
                 neighbor = parse.named_zones[neighbor['name']]
                 if neighbor not in visited:
@@ -218,8 +227,9 @@ class Graph:
             if drone.target:
                 self.next_moves.append(drone)
 
-        for next_move in self.next_moves:
-            print(next_move.target)
+        # for next_move in self.next_moves:
+        #     print('--------------')
+        #     print(f"D{next_move.index} {next_move.target}")
         
         while self.next_moves:
             current = self.next_moves.pop(0)
@@ -228,6 +238,22 @@ class Graph:
             if not current.move_drone(self, parse, screen, display):
                 self.next_moves.append(current)
             else:
+                # Drone arrived at target; decrement the target's occupancy
+                if current.target != parse.end_hub.name:
+                    parse.named_zones[current.target].drones_in -= 1
                 current.zone['name'] = current.target
-                parse.named_zones[current.target].drones_in -= 1
                 current.target = None
+
+
+    # def print_zones(self, parse):
+    #     visited = set()
+    #     queue = [self.start_hub]
+
+    #     while queue:
+    #         current = queue.pop(0)
+    #         visited.add(current)
+    #         print(current.name, current.drones_in, end=" ")
+    #         for neighbor in current.connections:
+    #             if parse.named_zones[neighbor['name']] not in visited:
+    #                 queue.append(parse.named_zones[neighbor['name']])
+    #     print()
