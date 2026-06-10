@@ -1,5 +1,5 @@
 # Multiple Paths with Blocked Zones
-nb_drones: 2
+nb_drones: 4
 
 start_hub: start 0 0 [color=green max_drones=6]
 

@@ -58,14 +58,7 @@ def main():
 
 
     screen = pygame.display.set_mode((1600, 800))
-    clock = pygame.time.Clock()
     graph.rank_hubs(parse)
-    drone_start_x, drone_start_y = graph.drones[0].zone['coordinates']
-
-    rendring = True
-    draging = False
-    camera_x, camera_y = (0, 0)
-
 
     while display.rendring:
         display.dragging()
@@ -76,12 +69,14 @@ def main():
             node.draw_node(screen, display.camera_x, display.camera_y)
 
         graph.draw_drones(screen, display.camera_x, display.camera_y)
-        
-        for drone in graph.drones:
-            drone.find_path(graph, parse, screen, display)
+
+        graph.find_next_hubs(parse, screen, display)
+        #graph.find_next_move
+        # for drone in graph.drones:
+            # drone.find_path(graph, parse, screen, display)
 
         pygame.display.flip()
-        clock.tick(10)
+        graph.clock.tick(60)
 
 if __name__ == "__main__":
     main()
