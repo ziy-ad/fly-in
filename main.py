@@ -53,9 +53,9 @@ def main():
 
     graph = Graph(parse.nb_drones, parse.start_hub, parse.end_hub)
     if not graph.path_exist(parse):
-        print("invalid path to end_hub !")
+        parse.log_and_exit("invalid path to end_hub !")
         exit(1)
-
+    print(len(graph.extract_all_paths(parse)))
 
     screen = pygame.display.set_mode((1600, 800))
     graph.rank_hubs(parse)
@@ -68,9 +68,6 @@ def main():
         for node in parse.zones:
             node.draw_node(screen, display.camera_x, display.camera_y)
 
-        # if parse.end_hub.drones_in == parse.nb_drones:
-        #     time.sleep(2)
-        #     break
         graph.draw_drones(screen, display.camera_x, display.camera_y)
         graph.find_next_hubs(parse, screen, display)
 

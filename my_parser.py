@@ -62,6 +62,9 @@ class My_Parssing:
                             if ltype == "start_hub" or ltype == "end_hub":
                                 if temp_zone.meta_data['zone'] == "blocked":
                                     My_Parssing.log_and_exit(i, f"{ltype} can't be blocked zone")
+                                if temp_zone.meta_data['max_drones'] < self.nb_drones:
+                                    max_dr = temp_zone.meta_data['max_drones']
+                                    My_Parssing.log_and_exit(i, f"not enough max_drones {max_dr} for {ltype} should at least have {self.nb_drones}")
 
                             if ltype == "end_hub" and self.end_hub:
                                 My_Parssing.log_and_exit(i, f"duplicated 'end_hub': {org_line}")
@@ -131,6 +134,11 @@ class My_Parssing:
     def validate_zone_metadata(self, i: int, metadata: dict[str, str | int], line: str) -> dict[str, str | int]:
         possible_keys = {'zone', 'color', 'max_drones'}
         possible_types = {'normal', 'blocked', 'restricted', 'priority'}
+
+        tmp_line = line.lower() 
+        if "max_drones" not in metadata.keys() and (tmp_line.startswith("start_hub") or tmp_line.startswith("end_hub")):
+            metadata['max_drones'] = self.nb_drones
+    
 
         if not metadata:
             return {"zone": "normal", "color": None, "max_drones": 1}

@@ -55,6 +55,7 @@ class Drone:
         self.target_coordinates = self.zone['coordinates']
         self.drone_start_x = 0
         self.drone_start_y = 0
+        self.logs = []
     
 
     def draw_drone(self, screen, camera_x, camera_y):
@@ -64,9 +65,7 @@ class Drone:
         screen.blit(self.img, image_rect)
     
     def move_drone(self, graph, parse, screen, display) -> bool:
-        # Check if we've reached the target (with small tolerance for floating point)
-        if self.t >= 1:
-            self.zone['coordinates'] = self.target_coordinates
+        if self.zone['coordinates'] == self.target_coordinates:
             return True
 
         display.dragging()
@@ -79,20 +78,17 @@ class Drone:
 
         graph.draw_drones(screen, display.camera_x, display.camera_y)
 
-        # Interpolate position smoothly
         progress = min(self.t, 1)
         target_x = self.drone_start_x + (self.target_coordinates[0] - self.drone_start_x) * progress
         target_y = self.drone_start_y + (self.target_coordinates[1] - self.drone_start_y) * progress
 
-        # Update zone coordinates for this frame
-        self.zone['coordinates'] = (target_x, target_y)
-        
         self.draw_drone(screen, display.camera_x, display.camera_y)
-        pygame.display.flip()
-        
-        # Increment progress after drawing
         self.t += graph_data.SPEED
-        
+
+        self.zone['coordinates'] = (target_x, target_y)
+        if self.t >= 1:
+            self.zone['coordinates'] = self.target_coordinates
+        pygame.display.flip()
         graph.clock.tick(60)
         return False
     
@@ -136,34 +132,43 @@ class Drone:
         image = pygame.image.load(random.choice(graph_data.drones))
         image = pygame.transform.scale(image, (60, 60))
         return image
-    
+
+
     def find_next_move(self, parse, graph) -> list:
         if self.zone['name'] == parse.end_hub.name:
+            # if parse.end_hub.meta_data['zone'] == 'restricted':
+            #     self.logs.append(f"D{self.index}-{.name}-{min_rank['name']}")
+            # self.logs.append(f"D{self.index}-{min_rank['name']}")
             return
 
         if self.target is not None:
             return
 
         connections = parse.named_zones[self.zone['name']].connections
-        min_rank = {'name': None, 'rank': float('inf')}
         
         sorted_connections = sorted(connections, key=lambda x: parse.named_zones[x['name']].rank)
+        min_name = sorted_connections[0]['name']
+        min_rank = {'name': None, 'rank': float('inf')}
 
+        filtred_connections = []
         for connection in sorted_connections:
             current = parse.named_zones[connection['name']]
-            if current.rank == float('inf'):
-                break
-            if current.rank <= min_rank['rank']:
-                    if current.drones_in < current.meta_data['max_drones']:
-                        min_rank['name'] = connection['name']
-                        min_rank['rank'] = parse.named_zones[connection['name']].rank
+            if current.drones_in < current.meta_data['max_drones'] and current.rank != float('inf'):
+                filtred_connections.append(connection)
+
+        if filtred_connections:
+            min_rank['name'] = filtred_connections[0]['name']
+            min_rank['rank'] = parse.named_zones[connection['name']].rank
 
         if not min_rank['name']:
             return
         
         parse.named_zones[min_rank['name']].drones_in += 1
-        self.target = min_rank['name']
         
+        if parse.named_zones[min_rank['name']].meta_data['zone'] == 'restricted':
+            self.logs.append(f"D{self.index}-{current.name}-{min_rank['name']}")
+        self.logs.append(f"D{self.index}-{min_rank['name']}")
+        self.target = min_rank['name']
         
 
 class Graph:
@@ -173,13 +178,43 @@ class Graph:
         self.drones: List[Drone] = self.add_drones(nb_drones)
         self.visited = set()
         self.next_moves = []
+        self.moving_drones = []  # Drones currently animating
+        self.links_in_use = {}  # Track drones using each link: {(from, to): count}
         self.clock = pygame.time.Clock()
 
     def add_drones(self, n):
         result = []
         for i in range(n):
-            result.append(Drone(self.start_hub, self.end_hub, i))
+            result.append(Drone(self.start_hub, self.end_hub, i+1))
         return result
+    
+    def get_link_key(self, from_hub, to_hub):
+        """Create a consistent key for bidirectional links"""
+        return (from_hub, to_hub)
+    
+    def get_link_capacity(self, parse, from_hub_name, to_hub_name):
+        """Get the max capacity of a link between two hubs"""
+        from_hub = parse.named_zones[from_hub_name]
+        for connection in from_hub.connections:
+            if connection['name'] == to_hub_name:
+                return connection.get('max_link_capacity', 1)
+        return 1  # Default capacity if not found
+    
+    def get_link_usage(self, from_hub_name, to_hub_name):
+        """Get current usage count of a link"""
+        link_key = self.get_link_key(from_hub_name, to_hub_name)
+        return self.links_in_use.get(link_key, 0)
+    
+    def increment_link_usage(self, from_hub_name, to_hub_name):
+        """Increment link usage when drone starts moving"""
+        link_key = self.get_link_key(from_hub_name, to_hub_name)
+        self.links_in_use[link_key] = self.links_in_use.get(link_key, 0) + 1
+    
+    def decrement_link_usage(self, from_hub_name, to_hub_name):
+        """Decrement link usage when drone finishes moving"""
+        link_key = self.get_link_key(from_hub_name, to_hub_name)
+        if link_key in self.links_in_use:
+            self.links_in_use[link_key] = max(0, self.links_in_use[link_key] - 1)
 
     def draw_drones(self, screen, camera_x, camera_y):
         for drone in self.drones:
@@ -222,28 +257,100 @@ class Graph:
 
     
     def find_next_hubs(self, parse, screen, display):
-        for drone in self.drones:
-            drone.find_next_move(parse, self)
-            if drone.target:
-                self.next_moves.append(drone)
-
-        # for next_move in self.next_moves:
-        #     print('--------------')
-        #     print(f"D{next_move.index} {next_move.target}")
+        """
+        Process one animation frame at a time, enabling smooth drone movement.
+        This is called once per frame from the main loop.
+        """
         
-        while self.next_moves:
-            current = self.next_moves.pop(0)
-            current.drone_start_x, current.drone_start_y = current.zone['coordinates']
-            current.target_coordinates = parse.named_zones[current.target].coordinates
-            if not current.move_drone(self, parse, screen, display):
-                self.next_moves.append(current)
+        # Step 1: Update drones that are currently animating
+        drones_still_moving = []
+        for drone in self.moving_drones:
+            # Update animation progress
+            progress = min(drone.t, 1)
+            target_x = drone.drone_start_x + (drone.target_coordinates[0] - drone.drone_start_x) * progress
+            target_y = drone.drone_start_y + (drone.target_coordinates[1] - drone.drone_start_y) * progress
+            
+            drone.zone['coordinates'] = (target_x, target_y)
+            drone.t += graph_data.SPEED
+            
+            # Check if drone reached target
+            if drone.t >= 1:
+                drone.zone['coordinates'] = drone.target_coordinates
+                # Finalize arrival
+                if drone.target != parse.end_hub.name:
+                    parse.named_zones[drone.target].drones_in -= 1
+                else:
+                    drone.visited.add(drone.target)
+                
+                # NEW: Decrement link usage when drone arrives
+                self.decrement_link_usage(drone.zone['name'], drone.target)
+                
+                drone.zone['name'] = drone.target
+                drone.target = None
             else:
-                # Drone arrived at target; decrement the target's occupancy
-                if current.target != parse.end_hub.name:
-                    parse.named_zones[current.target].drones_in -= 1
-                current.zone['name'] = current.target
-                current.target = None
+                # Still animating
+                drones_still_moving.append(drone)
+        
+        self.moving_drones = drones_still_moving
+        
+        # Step 2: Find new targets for drones that aren't moving
+        for drone in self.drones:
+            if drone not in self.moving_drones and drone.zone['name'] != parse.end_hub.name:
+                drone.find_next_move(parse, self)
+                if drone.target:
+                    # Prepare to animate this drone
+                    drone.drone_start_x, drone.drone_start_y = drone.zone['coordinates']
+                    drone.target_coordinates = parse.named_zones[drone.target].coordinates
+                    drone.t = 0
+                    self.moving_drones.append(drone)
+        
+        # Step 3: Print logs (once per move initiation)
+        for drone in self.drones:
+            if drone.logs:
+                print(drone.logs.pop(0), end=" ")
 
+    def extract_all_paths(self, parse):
+        """Extract all possible paths from start_hub to end_hub"""
+        all_paths = []
+        
+        def dfs(current_zone, target_zone, path, visited):
+            # Base case: reached the target (use object comparison, not name)
+            if current_zone is target_zone:
+                all_paths.append(path[:])
+                return
+            
+            # Prevent cycles: add to visited before exploring
+            visited.add(current_zone.name)
+            
+            # Explore all neighbors sorted by rank (greedy preference)
+            neighbors = sorted(
+                current_zone.connections, 
+                key=lambda x: parse.named_zones[x['name']].rank
+            )
+            
+            for connection in neighbors:
+                neighbor_name = connection['name']
+                # Skip if already visited or if it's a blocked zone
+                if neighbor_name in visited:
+                    continue
+                
+                neighbor_zone = parse.named_zones[neighbor_name]
+                
+                # Skip blocked zones unless it's the target
+                if (neighbor_zone.meta_data.get('zone') == 'blocked' and 
+                    neighbor_zone is not target_zone):
+                    continue
+                
+                path.append(neighbor_zone.name)
+                dfs(neighbor_zone, target_zone, path, visited)
+                path.pop()
+            
+            # Backtrack: remove from visited to allow other paths
+            visited.remove(current_zone.name)
+        
+        # Start DFS from start_hub with its name in the path
+        dfs(self.start_hub, self.end_hub, [self.start_hub.name], set())
+        return all_paths
 
     # def print_zones(self, parse):
     #     visited = set()
