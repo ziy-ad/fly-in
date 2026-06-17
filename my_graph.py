@@ -18,7 +18,7 @@ class Zone:
         self.coordinates: Tuple[int, int] = coordinates
         self.meta_data : dict[str, str | int] = meta_data
         self.connections: List[dict] = []
-        self.rank = 0
+        self.rank = float('inf')
         self.drones_in = 0
 
 
@@ -47,12 +47,13 @@ class Drone:
     def __init__(self, current_hub, end_hub, i):
         self.img: pygame.surface.Surface = Drone.load_image()
         self.zone: dict[str, Any] = {"name": current_hub.name, "coordinates": current_hub.coordinates}
+        self.visited = set()
         self.index = i
         self.t = 0
         self.moving = 0
         self.target = None
-        self.visited = set()
         self.target_coordinates = self.zone['coordinates']
+        self.previous = None
         self.drone_start_x = 0
         self.drone_start_y = 0
         self.logs = []
@@ -91,40 +92,6 @@ class Drone:
         pygame.display.flip()
         graph.clock.tick(60)
         return False
-    
-    def find_path(self, graph, parse, screen, display):
-        visited = set()
-
-        if self.zone['name'] == self.target.name:
-            return 
-
-        # while self.zone['name'] != self.target.name:
-        self.visited.add(self.zone['name'])
-        connections = parse.named_zones[self.zone['name']].connections
-        min_rank = {'name': None, 'rank': float('inf')}
-        for connection in connections:
-            if connection['name'] not in self.visited:
-                current = parse.named_zones[connection['name']]
-                if current.rank <= min_rank['rank']:
-                    if current.drones_in < current.meta_data['max_drones']:
-                        min_rank['name'] = connection['name']
-                        min_rank['rank'] = parse.named_zones[connection['name']].rank
-                        current.drones_in += 1
-                        # continue
-
-        if not min_rank['name']:
-            return
-
-        self.drone_start_x, self.drone_start_y = self.zone['coordinates']
-        self.target_coordinates = parse.named_zones[min_rank['name']].coordinates
-        self.t = 0
-
-        i = 0
-        while not self.move_drone(graph, parse, screen, display):
-            # print(i)
-            i += 1
-        parse.named_zones[self.zone['name']].drones_in -= 1
-        self.zone['name'] = min_rank['name']
 
 
     @staticmethod
@@ -134,7 +101,7 @@ class Drone:
         return image
 
 
-    def find_next_move(self, parse, graph) -> list:
+    def find_next_move(self, parse, graph) -> None:
         if self.zone['name'] == parse.end_hub.name:
             # if parse.end_hub.meta_data['zone'] == 'restricted':
             #     self.logs.append(f"D{self.index}-{.name}-{min_rank['name']}")
@@ -143,32 +110,104 @@ class Drone:
 
         if self.target is not None:
             return
-
-        connections = parse.named_zones[self.zone['name']].connections
         
-        sorted_connections = sorted(connections, key=lambda x: parse.named_zones[x['name']].rank)
-        min_name = sorted_connections[0]['name']
+        connections = parse.named_zones[self.zone['name']].connections
+        min_hub = min(connections, key=lambda x: parse.named_zones[x['name']].rank)
         min_rank = {'name': None, 'rank': float('inf')}
 
-        filtred_connections = []
-        for connection in sorted_connections:
-            current = parse.named_zones[connection['name']]
-            if current.drones_in < current.meta_data['max_drones'] and current.rank != float('inf'):
-                filtred_connections.append(connection)
 
-        if filtred_connections:
-            min_rank['name'] = filtred_connections[0]['name']
-            min_rank['rank'] = parse.named_zones[connection['name']].rank
-
-        if not min_rank['name']:
+        if not min_hub or parse.named_zones[min_hub['name']].rank == float('inf'):
             return
+
+        min_rank['name'] = min_hub['name']
+        min_rank['rank'] = parse.named_zones[min_hub['name']].rank
+
+        current = parse.named_zones[min_hub['name']]
+
+        if current.drones_in < current.meta_data['max_drones']:
+            parse.named_zones[min_rank['name']].drones_in += 1
         
-        parse.named_zones[min_rank['name']].drones_in += 1
+            if parse.named_zones[min_rank['name']].meta_data['zone'] == 'restricted':
+                self.logs.append(f"D{self.index}-{current.name}-{min_rank['name']}")
+            self.logs.append(f"D{self.index}-{min_rank['name']}")
+            self.target = min_rank['name']
+        else:
+            filtred_connections = []
+            for connection in connections:
+                current = parse.named_zones[connection['name']]
+                if current.rank == min_rank['rank'] or current.rank == min_rank['rank'] + 1:
+                    if current.name != min_rank['name']:
+                        filtred_connections.append(connection)
+            if filtred_connections:
+                print(filtred_connections)
+
+
+
+
+    # def find_next_move(self, parse, graph) -> None:
+    #     if self.zone['name'] == parse.end_hub.name:
+    #         # if parse.end_hub.meta_data['zone'] == 'restricted':
+    #         #     self.logs.append(f"D{self.index}-{.name}-{min_rank['name']}")
+    #         # self.logs.append(f"D{self.index}-{min_rank['name']}")
+    #         return
+
+    #     if self.target is not None:
+    #         return
+
+    #     connections = parse.named_zones[self.zone['name']].connections
         
-        if parse.named_zones[min_rank['name']].meta_data['zone'] == 'restricted':
-            self.logs.append(f"D{self.index}-{current.name}-{min_rank['name']}")
-        self.logs.append(f"D{self.index}-{min_rank['name']}")
-        self.target = min_rank['name']
+    #     # sorted_connections = sorted(connections, key=lambda x: parse.named_zones[x['name']].rank)
+    #     # min_name = sorted_connections[0]['name']
+    #     min_rank = {'name': None, 'rank': float('inf')}
+
+    #     for connection in connections:
+    #         current = parse.named_zones[connection['name']]
+    #         if current.rank < min_rank['rank']:
+    #             min_rank['rank'] = current.rank
+    #             min_rank['name'] = current.name
+        
+    #     current = parse.named_zones[min_rank['name']]
+    #     if current.drones_in < current.meta_data['max_drones'] and min_rank['name'] != self.previous:
+    #         parse.named_zones[min_rank['name']].drones_in += 1
+        
+    #         if parse.named_zones[min_rank['name']].meta_data['zone'] == 'restricted':
+    #             self.logs.append(f"D{self.index}-{current.name}-{min_rank['name']}")
+    #         self.logs.append(f"D{self.index}-{min_rank['name']}")
+    #         self.target = min_rank['name']
+    #         return
+
+    #     for connection in connections:
+    #         current = parse.named_zones[connection['name']]
+    #         if current.rank == min_rank['rank'] or current.rank == min_rank['rank'] + 1:
+    #             if current.drones_in < current.meta_data['max_drones'] and current.name != self.previous:
+    #                 min_rank['rank'] = current.rank
+    #                 min_rank['name'] = current.name
+                
+
+
+    #     # filtred_connections = []
+    #     # for connection in connections:
+    #     #     current = parse.named_zones[connection['name']]
+    #     #     if current.drones_in < current.meta_data['max_drones'] and current.rank != float('inf'):
+    #     #         if current.name != self.previous:
+    #     #             filtred_connections.append(connection)
+
+        
+    #     # if filtred_connections:
+    #     #     filtred_connections = sorted(filtred_connections,  key=lambda x: parse.named_zones[x['name']].rank)
+    #     #     min_rank['name'] = filtred_connections[0]['name']
+    #     #     min_rank['rank'] = parse.named_zones[connection['name']].rank
+
+    #     if not min_rank['name']:
+    #         self.target = None
+    #         return
+        
+    #     parse.named_zones[min_rank['name']].drones_in += 1
+        
+    #     if parse.named_zones[min_rank['name']].meta_data['zone'] == 'restricted':
+    #         self.logs.append(f"D{self.index}-{current.name}-{min_rank['name']}")
+    #     self.logs.append(f"D{self.index}-{min_rank['name']}")
+    #     self.target = min_rank['name']
         
 
 class Graph:
@@ -285,6 +324,7 @@ class Graph:
                 # NEW: Decrement link usage when drone arrives
                 self.decrement_link_usage(drone.zone['name'], drone.target)
                 
+                drone.previous = drone.zone['name']
                 drone.zone['name'] = drone.target
                 drone.target = None
             else:
@@ -305,52 +345,57 @@ class Graph:
                     self.moving_drones.append(drone)
         
         # Step 3: Print logs (once per move initiation)
+        logs_exist = False
         for drone in self.drones:
             if drone.logs:
-                print(drone.logs.pop(0), end=" ")
+                logs_exist = True 
+                print(drone.logs.pop(0), end=" ", flush=True)
+        if logs_exist:
+            parse.turns += 1
+            print()
 
-    def extract_all_paths(self, parse):
-        """Extract all possible paths from start_hub to end_hub"""
-        all_paths = []
+    # def extract_all_paths(self, parse):
+    #     """Extract all possible paths from start_hub to end_hub"""
+    #     all_paths = []
         
-        def dfs(current_zone, target_zone, path, visited):
-            # Base case: reached the target (use object comparison, not name)
-            if current_zone is target_zone:
-                all_paths.append(path[:])
-                return
+    #     def dfs(current_zone, target_zone, path, visited):
+    #         # Base case: reached the target (use object comparison, not name)
+    #         if current_zone is target_zone:
+    #             all_paths.append(path[:])
+    #             return
             
-            # Prevent cycles: add to visited before exploring
-            visited.add(current_zone.name)
+    #         # Prevent cycles: add to visited before exploring
+    #         visited.add(current_zone.name)
             
-            # Explore all neighbors sorted by rank (greedy preference)
-            neighbors = sorted(
-                current_zone.connections, 
-                key=lambda x: parse.named_zones[x['name']].rank
-            )
+    #         # Explore all neighbors sorted by rank (greedy preference)
+    #         neighbors = sorted(
+    #             current_zone.connections, 
+    #             key=lambda x: parse.named_zones[x['name']].rank
+    #         )
             
-            for connection in neighbors:
-                neighbor_name = connection['name']
-                # Skip if already visited or if it's a blocked zone
-                if neighbor_name in visited:
-                    continue
+    #         for connection in neighbors:
+    #             neighbor_name = connection['name']
+    #             # Skip if already visited or if it's a blocked zone
+    #             if neighbor_name in visited:
+    #                 continue
                 
-                neighbor_zone = parse.named_zones[neighbor_name]
+    #             neighbor_zone = parse.named_zones[neighbor_name]
                 
-                # Skip blocked zones unless it's the target
-                if (neighbor_zone.meta_data.get('zone') == 'blocked' and 
-                    neighbor_zone is not target_zone):
-                    continue
+    #             # Skip blocked zones unless it's the target
+    #             if (neighbor_zone.meta_data.get('zone') == 'blocked' and 
+    #                 neighbor_zone is not target_zone):
+    #                 continue
                 
-                path.append(neighbor_zone.name)
-                dfs(neighbor_zone, target_zone, path, visited)
-                path.pop()
+    #             path.append(neighbor_zone.name)
+    #             dfs(neighbor_zone, target_zone, path, visited)
+    #             path.pop()
             
-            # Backtrack: remove from visited to allow other paths
-            visited.remove(current_zone.name)
+    #         # Backtrack: remove from visited to allow other paths
+    #         visited.remove(current_zone.name)
         
-        # Start DFS from start_hub with its name in the path
-        dfs(self.start_hub, self.end_hub, [self.start_hub.name], set())
-        return all_paths
+    #     # Start DFS from start_hub with its name in the path
+    #     dfs(self.start_hub, self.end_hub, [self.start_hub.name], set())
+    #     return all_paths
 
     # def print_zones(self, parse):
     #     visited = set()

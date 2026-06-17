@@ -41,6 +41,13 @@ class Display:
                     self.camera_y += dy
                     self.last_x, self.last_y = event.pos
 
+    def write_text(self, txt: str) -> None:
+        """Render a single status line on the top left window."""
+        pygame.init()
+        font = pygame.font.SysFont("", 32)
+        text_surface = font.render(txt, True, (255, 255, 255))
+        self.screen.blit(text_surface, (50, 100))
+
 def main():
     try:
         file_path = sys.argv[1]
@@ -55,7 +62,7 @@ def main():
     if not graph.path_exist(parse):
         parse.log_and_exit("invalid path to end_hub !")
         exit(1)
-    print(len(graph.extract_all_paths(parse)))
+    # print(len(graph. extract_all_paths(parse)))
 
     screen = pygame.display.set_mode((1600, 800))
     graph.rank_hubs(parse)
@@ -71,6 +78,7 @@ def main():
         graph.draw_drones(screen, display.camera_x, display.camera_y)
         graph.find_next_hubs(parse, screen, display)
 
+        display.write_text(f"turns: {parse.turns}")
         pygame.display.flip()
         graph.clock.tick(60)
 

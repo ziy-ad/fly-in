@@ -14,6 +14,7 @@ class My_Parssing:
         self.named_zones: dict[str, Zone] = {}
         self.start_hub = None
         self.end_hub = None
+        self.turns = 0
 
     def parser(self):
         zones_metadata = {"zone", "color", "max_drones"}
@@ -197,6 +198,9 @@ class My_Parssing:
             if int(metadata[1]) > self.nb_drones:
                 My_Parssing.log_and_exit(i, f"max_link_capacity should be less or equal to nb_drones:{self.nb_drones}")
             max_link = int(metadata[1])
+            if max_link <= 0:
+                My_Parssing.log_and_exit(i, f"max_link_capacity should greater or equal to 1")
+                  
 
         zone1_instance.connections.append({'name': zone2, 'max_link_capacity': max_link})
         zone2_instance.connections.append({'name': zone1, 'max_link_capacity': max_link})
