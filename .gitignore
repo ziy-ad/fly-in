@@ -1,4 +1,10 @@
-__pycache__/
+.venv
+.python-version
+data/output/function_calls.json
+__pycache__
+__pycache__/*
+*/__pycache__/*
+.vscode
+.mypy_cache
+.pytest_cache/
 .excalidraw
-.vscode/
-maps/challenger/custom.txt

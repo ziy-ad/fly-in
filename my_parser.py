@@ -8,7 +8,13 @@ from my_graph import Zone
 
 
 class My_Parssing:
+    """Parses a graph configuration file and builds Zone objects."""
     def __init__(self, file_path: str) -> None:
+        """Initializes the My_Parssing instance.
+
+        Args:
+            file_path: The path to the configuration file to parse.
+        """
         self.file_path: str = file_path
         self.existed_coordinates: Set[Tuple[int, int]] = set()
         self.existed_names: Set[str] = set()
@@ -20,6 +26,11 @@ class My_Parssing:
         self.turns: int = 0
 
     def parser(self) -> None:
+        """Parses the configuration file line by line.
+
+        Reads the file, extracts drone counts, hubs, and connections,
+        and validates them. Exits if any critical validation fails.
+        """
         try:
             with open(self.file_path) as file:
                 i = 0
@@ -123,6 +134,16 @@ class My_Parssing:
 
     @staticmethod
     def log_and_exit(i: int, msg: Union[str, Exception]) -> NoReturn:
+        """Logs an error message and exits the program.
+
+        Args:
+            i: The line number where the error occurred, or 0
+                for general errors.
+            msg: The error message or exception to log.
+
+        Returns:
+            NoReturn: This function always exits the program.
+        """
         if i == 0:
             print(msg)
         else:
@@ -131,6 +152,16 @@ class My_Parssing:
 
     @staticmethod
     def strip_line(i: int, line: str) -> Tuple[str, str]:
+        """Strips the prefix from a line and identifies its type.
+
+        Args:
+            i: The current line number for error logging.
+            line: The raw line string to process.
+
+        Returns:
+            A tuple containing the line type (e.g., 'start_hub')
+            and the stripped line content without the prefix.
+        """
         if line.startswith("start_hub:"):
             return ("start_hub", line.removeprefix("start_hub:").strip())
         elif line.startswith("hub:"):
@@ -148,6 +179,17 @@ class My_Parssing:
     def validate_zone(
         self, i: int, data: Tuple[Any, ...], line: str
     ) -> Zone:
+        """Validates zone data and creates a new Zone instance.
+
+        Args:
+            i: The current line number for error logging.
+            data: A tuple containing name, x, y, and raw
+                metadata string.
+            line: The original line string for error logging.
+
+        Returns:
+            The newly created and validated Zone object.
+        """
         name = data[0]
         try:
             x = int(data[1])
@@ -189,6 +231,20 @@ class My_Parssing:
     def validate_zone_metadata(
         self, i: int, metadata: Dict[str, Any], line: str
     ) -> Dict[str, Any]:
+        """Validates and normalizes the metadata dictionary for a zone.
+
+        Checks for valid keys, resolves color names to RGB tuples,
+        and sets default values for missing metadata.
+
+        Args:
+            i: The current line number for error logging.
+            metadata: The raw metadata dictionary extracted from
+                the line.
+            line: The original line string for error logging.
+
+        Returns:
+            The validated and normalized metadata dictionary.
+        """
         possible_keys = {"zone", "color", "max_drones"}
         possible_types = {"normal", "blocked", "restricted", "priority"}
 
@@ -243,6 +299,14 @@ class My_Parssing:
     def validate_connection(
         self, i: int, data: Tuple[Any, ...], line: str
     ) -> None:
+        """Validates a connection between two zones and links them.
+
+        Args:
+            i: The current line number for error logging.
+            data: A tuple containing zone1 name, zone2 name,
+                and optional raw metadata string.
+            line: The original line string for error logging.
+        """
         zone1 = data[0]
         zone2 = data[1]
         max_link = 1
@@ -297,6 +361,18 @@ class My_Parssing:
 
     @staticmethod
     def zone_name_exist(name: str, zone: Zone) -> bool:
+        """Checks if a zone already has a connection to a given name.
+
+        Args:
+            name: The name of the zone to search for in
+                connections.
+            zone: The Zone object whose connections will be
+                checked.
+
+        Returns:
+            True if the name exists in the zone's connections,
+            False otherwise.
+        """
         if not zone.connections:
             return False
         name_connections = {

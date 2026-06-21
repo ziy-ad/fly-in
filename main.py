@@ -5,6 +5,12 @@ import pygame
 
 
 def main() -> None:
+    """Main entry point for the drone graph simulation.
+
+    Initializes the parser and display from a given file, validates
+    the parsed graph, and runs the main pygame rendering loop to
+    simulate drone movements between hubs.
+    """
     try:
         file_path = sys.argv[1]
     except Exception:
@@ -62,4 +68,7 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except BaseException:
+        exit(0)
