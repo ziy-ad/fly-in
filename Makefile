@@ -3,10 +3,11 @@ install:
 	uv sync
 
 run:
-	uv run python3 main.py maps/challenger/01_the_impossible_dream.txt
+	$(install)
+	uv run python3 main.py maps/easy/01_linear_path.txt
 
 debug:
-	python3 -m pdb main.py maps/challenger/01_the_impossible_dream.txt
+	python3 -m pdb main.py maps/easy/01_linear_path.txt
 
 clean:
 	rm -rf *__pycache__*
@@ -14,6 +15,7 @@ clean:
 	rm -rf src/__pycache__
 	rm -rf .mypy_cache
 	rm -rf .vscode
+	rm -rf .venv
 
 lint:
 	flake8 . --exclude .venv
