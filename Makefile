@@ -1,5 +1,5 @@
 install:
-	pip install
+	pip install uv
 	uv sync
 
 run:
@@ -12,9 +12,11 @@ debug:
 clean:
 	$(install)
 	uv run -m pyclean .   
-	rm -rf .mypy_cache
-	rm -rf .venv
+	rm -rf .mypy_cache .venv
+	rm -rf .vscode
+
 
 lint:
+	$(install)
 	-flake8 . --exclude .venv
-	-uv run -m mypy . --warn-return-any --warn-unused-ignores --ignore-missing-imports --disallow-untyped-defs --check-untyped-defs
+	-uv run python3 -m mypy . --warn-return-any --warn-unused-ignores --ignore-missing-imports --disallow-untyped-defs --check-untyped-defs

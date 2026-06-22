@@ -9,7 +9,7 @@ from my_graph import Zone
 
 class My_Parssing:
     """Parses a graph configuration file and builds Zone objects."""
-    def __init__(self, infos, file_path: str) -> None:
+    def __init__(self, file_path: str) -> None:
         """Initializes the My_Parssing instance.
 
         Args:
@@ -24,7 +24,6 @@ class My_Parssing:
         self.start_hub: Optional[Zone] = None
         self.end_hub: Optional[Zone] = None
         self.turns: int = 0
-        self.infos = infos
 
     def parser(self) -> None:
         """Parses the configuration file line by line.
@@ -46,11 +45,11 @@ class My_Parssing:
                         line.lower().startswith("nb_drones")
                         and self.nb_drones is None
                     ):
-                        n_line = re.findall(r"\w+:\s+?-?\d+\s?", line.lower())
-                        if not n_line or n_line[0] != line:
+                        n_line = line.split(":")
+                        if len(n_line) != 2:
                             raise ValueError(f"invalid format: {org_line}")
                         try:
-                            self.nb_drones = int(n_line[0].split(":")[1])
+                            self.nb_drones = int(n_line[1])
                             if self.nb_drones <= 0:
                                 raise ValueError("number should be positive")
                         except Exception as e:
@@ -250,7 +249,7 @@ class My_Parssing:
         possible_types = {"normal", "blocked", "restricted", "priority"}
 
         tmp_line = line.lower()
-        if "max_drones" not in metadata.keys() and (
+        if (
             tmp_line.startswith("start_hub")
             or tmp_line.startswith("end_hub")
         ):
@@ -289,6 +288,14 @@ class My_Parssing:
                 except Exception as e:
                     My_Parssing.log_and_exit(i, f"{line}\n{e}")
                 metadata["max_drones"] = max_drones
+                if (
+                    not tmp_line.startswith("start_hub")
+                    and
+                    not tmp_line.startswith("end_hub")
+                ):
+                    if max_drones <= 0:
+                        msg = "max_drones in metadata should be > 1"
+                        My_Parssing.log_and_exit(i, f"{line}\n{msg}")
         if "zone" not in metadata.keys():
             metadata["zone"] = "normal"
         if "color" not in metadata.keys():

@@ -328,7 +328,7 @@ class Drone:
 
     def find_next_move(
         self, parse: Any, graph: "Graph"
-    ) -> str:
+    ) -> None:
         """Determines and sets the next target zone for the drone.
 
         Evaluates connections based on their rank, capacity constraints,
@@ -340,16 +340,16 @@ class Drone:
             graph: The Graph instance managing link capacities.
         """
         if self.zone["name"] == parse.end_hub.name:
-            return None
+            return
 
         if self.target is not None:
-            return None
+            return
 
         connections = parse.named_zones[
             self.zone["name"]
         ].connections
         if not connections:
-            return None
+            return
 
         sorted_connections = sorted(
             connections,
@@ -374,7 +374,7 @@ class Drone:
             not min_rank["name"]
             or min_rank["rank"] == float("inf")
         ):
-            return None
+            return
 
         best_node = parse.named_zones[min_rank["name"]]
         link_cap = graph.get_link_capacity(
@@ -406,7 +406,7 @@ class Drone:
                 self.logs.append(
                     f"D{self.index}-{best_node.name}"
                 )
-            return (self.zone['name'], best_node.name)
+            return
 
         for connection in sorted_connections:
             current = parse.named_zones[
@@ -453,7 +453,7 @@ class Drone:
                         self.logs.append(
                             f"D{self.index}-{current.name}"
                         )
-                    return (self.zone['name'], current.name)
+                    return
 
 
 class Graph:
@@ -726,7 +726,6 @@ class Graph:
 
         self.moving_drones = drones_still_moving
 
-        choosen_hubs = []
         for drone in self.drones:
             if (
                 drone not in self.moving_drones
@@ -736,10 +735,7 @@ class Graph:
                 started_new_move = False
 
                 if drone.target is None:
-                    ret = drone.find_next_move(parse, self)
-                    if ret is not None:
-                        choosen_hubs.append(ret)
-
+                    drone.find_next_move(parse, self)
                     if drone.target:
                         started_new_move = True
 
@@ -806,12 +802,3 @@ class Graph:
         if logs_exist:
             parse.turns += 1
             print()
-            if parse.infos:
-                for hub in choosen_hubs:
-                    current = parse.named_zones[hub[1]]
-                    print(f"Zone {hub[1]} {current.drones_in}/{current.meta_data['max_drones']}", end=", ")
-                    key = Graph.get_link_key(hub[0], hub[1])
-                    max_ = self.get_link_capacity(parse, hub[0], hub[1])
-                    used = self.get_link_usage(hub[0], hub[1])
-
-                    print(f"Connection {hub[0]}-{hub[1]}: {used}/{max_}")
