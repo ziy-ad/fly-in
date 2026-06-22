@@ -24,6 +24,7 @@ class My_Parssing:
         self.start_hub: Optional[Zone] = None
         self.end_hub: Optional[Zone] = None
         self.turns: int = 0
+        self.i: int = 0
 
     def parser(self) -> None:
         """Parses the configuration file line by line.

@@ -64,6 +64,10 @@ def main() -> None:
 
         display.write_text(f"turns: {parse.turns}")
         pygame.display.flip()
+        if parse.end_hub.drones_in == parse.nb_drones:
+            parse.i += 1
+            if parse.i >= 60:
+                return
         graph.clock.tick(60)
 
 
