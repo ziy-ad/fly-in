@@ -11,6 +11,10 @@ def main() -> None:
     the parsed graph, and runs the main pygame rendering loop to
     simulate drone movements between hubs.
     """
+    info_exist = False
+    if "--capacity-info" in sys.argv:
+        sys.argv.remove("--capacity-info")
+        info_exist = True
     try:
         file_path = sys.argv[1]
     except Exception:
@@ -20,7 +24,7 @@ def main() -> None:
         )
         exit(1)
     display = Display(file_path)
-    parse = My_Parssing(file_path)
+    parse = My_Parssing(info_exist, file_path)
     parse.parser()
 
     try:

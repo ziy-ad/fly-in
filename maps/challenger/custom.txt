@@ -1,0 +1,31 @@
+# Impossible Level: Goal is disconnected from start
+nb_drones: 5
+
+start_hub: start 0 0 [color=green max_drones=5]
+
+hub: area_a1 1 0 [color=blue]
+hub: area_a2 2 0 [color=blue]
+hub: area_b1 1 1 [color=blue]
+hub: area_b2 2 1 [color=blue]
+hub: dead_end1 0 1 [color=red]
+hub: dead_end2 3 0 [color=red]
+
+# Completely separate component
+hub: isolated1 6 0 [color=orange]
+hub: isolated2 7 0 [color=orange]
+hub: isolated3 7 1 [color=orange]
+
+end_hub: goal 8 1 [color=green max_drones=5]
+
+# Start component
+connection: start-area_a1
+connection: area_a1-area_a2
+connection: area_a1-area_b1
+connection: area_b1-area_b2
+connection: start-dead_end1
+connection: area_a2-dead_end2
+
+# Goal component (isolated)
+connection: isolated1-isolated2
+connection: isolated2-isolated3
+connection: isolated3-goal

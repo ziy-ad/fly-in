@@ -1,20 +1,20 @@
 install:
-	pip install uv
+	pip install
 	uv sync
 
 run:
-	uv run python3 main.py maps/challenger/01_the_impossible_dream.txt
+	$(install)
+	uv run python3 main.py maps/easy/01_linear_path.txt
 
 debug:
-	python3 -m pdb main.py maps/challenger/01_the_impossible_dream.txt
+	python3 -m pdb main.py maps/easy/01_linear_path.txt
 
 clean:
-	rm -rf *__pycache__*
-	rm -rf llm_sdk/llm_sdk/__pycache__
-	rm -rf src/__pycache__
+	$(install)
+	uv run -m pyclean .   
 	rm -rf .mypy_cache
-	rm -rf .vscode
+	rm -rf .venv
 
 lint:
-	flake8 . --exclude .venv
-	mypy . --warn-return-any --warn-unused-ignores --ignore-missing-imports --disallow-untyped-defs --check-untyped-defs
+	-flake8 . --exclude .venv
+	-uv run -m mypy . --warn-return-any --warn-unused-ignores --ignore-missing-imports --disallow-untyped-defs --check-untyped-defs

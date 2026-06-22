@@ -9,7 +9,7 @@ from my_graph import Zone
 
 class My_Parssing:
     """Parses a graph configuration file and builds Zone objects."""
-    def __init__(self, file_path: str) -> None:
+    def __init__(self, infos, file_path: str) -> None:
         """Initializes the My_Parssing instance.
 
         Args:
@@ -24,6 +24,7 @@ class My_Parssing:
         self.start_hub: Optional[Zone] = None
         self.end_hub: Optional[Zone] = None
         self.turns: int = 0
+        self.infos = infos
 
     def parser(self) -> None:
         """Parses the configuration file line by line.
